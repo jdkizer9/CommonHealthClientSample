@@ -91,7 +91,7 @@ class CategoryListFragment : Fragment() {
 
         spinner = view.findViewById(R.id.progress_bar)
 
-        viewModel.resultsLiveData.observe(this) { resultsMap ->
+        viewModel.getResultsLiveData(requireContext()).observe(this) { resultsMap ->
             val resultsCounts = resultsMap.mapValues { it.value.count() }
             adapter.updateResultsCounts(resultsCounts)
         }
@@ -133,7 +133,7 @@ class CategoryListFragment : Fragment() {
             }
 
             if (authorizationStatus == CommonHealthAuthorizationStatus.unnecessary) {
-                viewModel.fetchAllData(requireContext())
+//                viewModel.fetchAllData(requireContext())
             }
         }
     }

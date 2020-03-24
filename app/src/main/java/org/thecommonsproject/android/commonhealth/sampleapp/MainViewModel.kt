@@ -3,14 +3,13 @@ package org.thecommonsproject.android.commonhealth.sampleapp
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.*
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
+import kotlinx.coroutines.flow.*
 import org.thecommonsproject.android.common.interapp.CommonHealthAuthorizationStatus
 import org.thecommonsproject.android.common.interapp.dataquery.response.ClinicalDataQueryResult
 import org.thecommonsproject.android.common.interapp.dataquery.response.DataQueryResult
@@ -54,11 +53,13 @@ class MainViewModel(
     }
 
 
-    private var resultsMap: Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>> = emptyMap()
-    var resultsLiveData: MutableLiveData<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>> = MutableLiveData(resultsMap)
+//    private var resultsMap: Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>> = emptyMap()
+//    var resultsLiveData: MutableLiveData<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>> = MutableLiveData(emptyMap())
+    val resultsFlow: Flow<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>>
+//    val resultsLiveData: LiveData<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>>
     // This function launches a new counter actor
-    fun CoroutineScope.resultsHolderActor() = actor<ResultHolderMessage> {
-
+    fun CoroutineScope.resultsHolderActor(sendChannel: SendChannel<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>>) = actor<ResultHolderMessage> {
+        var resultsMap: Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>> = emptyMap()
         for (msg in channel) { // iterate over incoming messages
             when (msg) {
                 is ResultHolderMessage.SetResults -> {
@@ -69,7 +70,8 @@ class MainViewModel(
                     }
 
                     resultsMap = resultsMap.plus(Pair(msg.resourceType, msg.results))
-                    resultsLiveData.postValue(resultsMap)
+//                    resultsLiveData.postValue(resultsMap)
+                    sendChannel.send(resultsMap)
                 }
             }
         }
@@ -77,9 +79,36 @@ class MainViewModel(
 
     var resultsHolderActor: SendChannel<ResultHolderMessage>? = null
     init {
-        viewModelScope.launch {
-            this@MainViewModel.resultsHolderActor = resultsHolderActor()
+        resultsFlow = callbackFlow {
+            this@MainViewModel.resultsHolderActor = resultsHolderActor(channel)
         }
+//        resultsLiveData = resultsFlow.asLiveData()
+//        viewModelScope.launch {
+//            this@MainViewModel.resultsHolderActor = resultsHolderActor()
+//        }
+    }
+
+    fun getResultsLiveData(context: Context) : LiveData<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>> {
+
+
+        return callbackFlow<Map<DataType.ClinicalResource, List<ClinicalDataQueryResult>>> {
+
+            val a = resultsHolderActor(this.channel)
+
+            //fetch all data
+            val fetchFlow = fetchAllDataFlow(context)
+
+            fetchFlow.collect {
+                val message = ResultHolderMessage.SetResults(it.first, it.second)
+                a.send(message)
+            }
+
+        }.asLiveData()
+
+//
+//
+//
+//        return resultsFlow.asLiveData()
     }
 
     suspend fun checkAuthorizationStatus(
@@ -125,25 +154,32 @@ class MainViewModel(
         }
     }
 
-    suspend fun fetchAllData(context: Context) {
+//    suspend fun fetchAllData(context: Context) {
+//
+//
+//        val typesToFetch = allDataTypes
+//        val jobs = typesToFetch.map { clinicalResource ->
+//
+//            CoroutineScope(Dispatchers.IO).launch {
+//                val results = fetchData(context, clinicalResource).mapNotNull { it as? ClinicalDataQueryResult }
+//                resultsHolderActor!!.send(
+//                    ResultHolderMessage.SetResults(
+//                        clinicalResource,
+//                        results
+//                    )
+//                )
+//            }
+//
+//        }
+//
+//        jobs.joinAll()
+//    }
 
-
-        val typesToFetch = allDataTypes
-        val jobs = typesToFetch.map { clinicalResource ->
-
-            CoroutineScope(Dispatchers.IO).launch {
-                val results = fetchData(context, clinicalResource).mapNotNull { it as? ClinicalDataQueryResult }
-                resultsHolderActor!!.send(
-                    ResultHolderMessage.SetResults(
-                        clinicalResource,
-                        results
-                    )
-                )
-            }
-
+    private suspend fun fetchAllDataFlow(context: Context) : Flow<Pair<DataType.ClinicalResource, List<ClinicalDataQueryResult>>> {
+        return allDataTypes.asFlow().map { clinicalResource ->
+            val resources = fetchData(context, clinicalResource).mapNotNull { it as? ClinicalDataQueryResult }
+            Pair(clinicalResource, resources)
         }
-
-        jobs.joinAll()
     }
 
     suspend fun isCommonHealthAvailable(context: Context): Boolean {

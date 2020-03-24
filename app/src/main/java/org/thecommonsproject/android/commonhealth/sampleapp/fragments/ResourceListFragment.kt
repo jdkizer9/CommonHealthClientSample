@@ -86,7 +86,7 @@ class ResourceListFragment : Fragment() {
         val progressBar = view.findViewById<ProgressBar>(R.id.progress_bar)
         progressBar.visibility = View.GONE
 
-        viewModel.resultsLiveData.observe(this) { resultsMap ->
+        viewModel.getResultsLiveData(requireContext()).observe(this) { resultsMap ->
             resultsMap[dataType]?.let {
                 adapter.updateResources(it)
             }
