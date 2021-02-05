@@ -123,7 +123,7 @@ class CategoryListFragment : Fragment() {
 
             when(authorizationStatus) {
                 CommonHealthAuthorizationStatus.unnecessary -> {
-                    Toast.makeText(requireContext(), "Authorization not needed", Toast.LENGTH_LONG).show()
+//                    Toast.makeText(requireContext(), "Authorization not needed", Toast.LENGTH_LONG).show()
                     authorizeButton.isEnabled = false
                 }
                 CommonHealthAuthorizationStatus.shouldRequest -> {

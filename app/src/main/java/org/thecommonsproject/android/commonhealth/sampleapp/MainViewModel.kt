@@ -19,6 +19,7 @@ import org.thecommonsproject.android.common.interapp.dataquery.response.RecordUp
 import org.thecommonsproject.android.common.interapp.scope.DataType
 import org.thecommonsproject.android.common.interapp.scope.Scope
 import org.thecommonsproject.android.common.interapp.scope.ScopeRequest
+import org.thecommonsproject.android.common.interapp.scope.ScopedCodeAllowListEntry
 import org.thecommonsproject.android.commonhealthclient.AuthorizationManagementActivity
 import org.thecommonsproject.android.commonhealthclient.AuthorizationRequest
 import org.thecommonsproject.android.commonhealthclient.CommonHealthAvailability
@@ -44,13 +45,29 @@ class MainViewModel(
     )
 
 
-    val scopeRequest: ScopeRequest by lazy {
-        val builder = ScopeRequest.Builder()
-        allDataTypes.forEach {
-            builder.add(it, Scope.Access.READ)
-        }
-        builder.build()
-    }
+//    val scopeRequest: ScopeRequest by lazy {
+//        val builder = ScopeRequest.Builder()
+//        allDataTypes.forEach {
+//            builder.add(it, Scope.Access.READ)
+//        }
+//        builder.build()
+//    }
+
+    private val scopeRequest: ScopeRequest = ScopeRequest.Builder()
+        .add(Scope(DataType.ClinicalResource.ClinicalVitalsResource, Scope.Access.READ, listOf(
+            ScopedCodeAllowListEntry(
+                codingSystem = "http://loinc.org",
+                codes = listOf("55284-4", "29463-7") // Blood pressure and weight
+            )
+        )))
+        .add(Scope(DataType.ClinicalResource.LaboratoryResultsResource, Scope.Access.READ, listOf(
+            ScopedCodeAllowListEntry(
+                codingSystem = "http://loinc.org",
+                codes = listOf("4548-4", "2339-0") // Glucose and A1C
+            )
+        )))
+        .add(Scope(DataType.ClinicalResource.MedicationResource, Scope.Access.READ, null))
+        .build()
 
     sealed class ResultHolderMessage {
         class SetResults(val resourceType: DataType.ClinicalResource, val results: List<FHIRSampleDataQueryResult>) : ResultHolderMessage()
